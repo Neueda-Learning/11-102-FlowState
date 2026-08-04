@@ -22,7 +22,7 @@ public class AccountServiceLogic implements AccountService {
         return accountRepository.findById(accountId);
     }
     @Override
-    public Optional<Account> getAccountByAccountNumber(String accountNumber) {
+    public Optional<Account> getAccountByAccountNumber( String accountNumber) {
         return accountRepository.findByAccountNumber(accountNumber);
     }
     @Override
