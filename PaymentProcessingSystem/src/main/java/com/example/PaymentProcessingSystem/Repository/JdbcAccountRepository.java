@@ -6,6 +6,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
 
+import java.sql.Timestamp;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -28,8 +30,8 @@ public class JdbcAccountRepository implements AccountRepository {
                     rs.getString("currency"),
                     rs.getString("status"),
                     rs.getInt("version"),
-                    rs.getTimestamp("created_at").toLocalDateTime(),
-                    rs.getTimestamp("updated_at").toLocalDateTime()
+                    toLocalDateTime(rs.getTimestamp("created_at")),
+                    toLocalDateTime(rs.getTimestamp("updated_at"))
             );
 
     private final RowMapper<AuditRecord> auditRowMapper = (rs, rowNum) ->
@@ -39,7 +41,7 @@ public class JdbcAccountRepository implements AccountRepository {
                     rs.getString("aggregate_id"),
                     rs.getString("event_type"),
                     rs.getString("message"),
-                    rs.getTimestamp("created_at").toLocalDateTime()
+                    toLocalDateTime(rs.getTimestamp("created_at"))
             );
 
     @Override
@@ -119,5 +121,9 @@ public class JdbcAccountRepository implements AccountRepository {
                 eventType,
                 message
         );
+    }
+
+    private LocalDateTime toLocalDateTime(Timestamp timestamp) {
+        return timestamp == null ? null : timestamp.toLocalDateTime();
     }
 }
