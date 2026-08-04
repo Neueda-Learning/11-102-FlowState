@@ -32,11 +32,19 @@ public class AccountServiceLogic implements AccountService {
     }
     @Override
     public Account updateAccount(Long accountId, Account account) {
+        Account existing = accountRepository.findById(accountId).orElseThrow();
         Account updated = new Account(
                 accountId,
-                account.account_number(),
-                account.balance(),
-                account.created_at()
+                account.account_number() != null ? account.account_number() : existing.account_number(),
+                account.account_holder_name() != null ? account.account_holder_name() : existing.account_holder_name(),
+                account.email() != null ? account.email() : existing.email(),
+                account.phone_number() != null ? account.phone_number() : existing.phone_number(),
+                account.balance() != null ? account.balance() : existing.balance(),
+                account.currency() != null ? account.currency() : existing.currency(),
+                account.status() != null ? account.status() : existing.status(),
+                existing.version(),
+                existing.created_at(),
+                existing.updated_at()
         );
         accountRepository.update(updated);
         return accountRepository.findById(accountId).orElseThrow();

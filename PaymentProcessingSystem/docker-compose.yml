@@ -4,7 +4,7 @@ services:
     image: mysql:8.0
     container_name: pps-mysql
     environment:
-      MYSQL_DATABASE: payment_processing
+      MYSQL_DATABASE: paymentprocessingsystem
       MYSQL_USER: app_user
       MYSQL_PASSWORD: app_password
       MYSQL_ROOT_PASSWORD: root_password
@@ -27,7 +27,7 @@ services:
       mysql:
         condition: service_healthy
     environment:
-      DB_URL: jdbc:mysql://mysql:3306/payment_processing?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
+      DB_URL: jdbc:mysql://mysql:3306/paymentprocessingsystem?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
       DB_USERNAME: app_user
       DB_PASSWORD: app_password
     ports:

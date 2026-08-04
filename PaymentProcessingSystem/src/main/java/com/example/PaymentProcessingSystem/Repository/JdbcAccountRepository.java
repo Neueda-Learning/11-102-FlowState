@@ -19,10 +19,17 @@ public class JdbcAccountRepository implements AccountRepository {
 
     private final RowMapper<Account> accountRowMapper = (rs, rowNum) ->
             new Account(
-                    rs.getLong("id"),
+                    rs.getLong("account_id"),
                     rs.getString("account_number"),
-                    rs.getLong("balance"),
-                    rs.getTimestamp("created_at").toLocalDateTime()
+                    rs.getString("account_holder_name"),
+                    rs.getString("email"),
+                    rs.getString("phone_number"),
+                    rs.getBigDecimal("balance"),
+                    rs.getString("currency"),
+                    rs.getString("status"),
+                    rs.getInt("version"),
+                    rs.getTimestamp("created_at").toLocalDateTime(),
+                    rs.getTimestamp("updated_at").toLocalDateTime()
             );
 
     private final RowMapper<AuditRecord> auditRowMapper = (rs, rowNum) ->
@@ -37,13 +44,13 @@ public class JdbcAccountRepository implements AccountRepository {
 
     @Override
     public List<Account> findAll() {
-        return jdbc.query("SELECT id, account_number, balance, created_at FROM account", accountRowMapper);
+        return jdbc.query("SELECT account_id, account_number, account_holder_name, email, phone_number, balance, currency, status, version, created_at, updated_at FROM account", accountRowMapper);
     }
 
     @Override
     public Optional<Account> findById(Long account_id) {
         List<Account> results = jdbc.query(
-                "SELECT id, account_number, balance, created_at FROM account WHERE id = ?",
+                "SELECT account_id, account_number, account_holder_name, email, phone_number, balance, currency, status, version, created_at, updated_at FROM account WHERE account_id = ?",
                 accountRowMapper,
                 account_id
         );
@@ -53,7 +60,7 @@ public class JdbcAccountRepository implements AccountRepository {
     @Override
     public Optional<Account> findByAccountNumber(String account_number) {
         List<Account> results = jdbc.query(
-                "SELECT id, account_number, balance, created_at FROM account WHERE account_number = ?",
+                "SELECT account_id, account_number, account_holder_name, email, phone_number, balance, currency, status, version, created_at, updated_at FROM account WHERE account_number = ?",
                 accountRowMapper,
                 account_number
         );
@@ -63,25 +70,35 @@ public class JdbcAccountRepository implements AccountRepository {
     @Override
     public Account save(Account account) {
         jdbc.update(
-                "INSERT INTO account (account_number, balance) VALUES (?, ?)",
+                "INSERT INTO account (account_number, account_holder_name, email, phone_number, balance, currency, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
                 account.account_number(),
-                account.balance()
+                account.account_holder_name(),
+                account.email(),
+                account.phone_number(),
+                account.balance(),
+                account.currency() == null ? "INR" : account.currency(),
+                account.status() == null ? "ACTIVE" : account.status()
         );
         Account saved = findByAccountNumber(account.account_number()).orElseThrow();
-        insertAudit("ACCOUNT", String.valueOf(saved.id()), "CREATED", "Account created");
+        insertAudit("ACCOUNT", String.valueOf(saved.account_id()), "CREATED", "Account created");
         return saved;
     }
 
     @Override
     public Account update(Account account) {
         jdbc.update(
-                "UPDATE account SET account_number = ?, balance = ? WHERE id = ?",
+                "UPDATE account SET account_number = ?, account_holder_name = ?, email = ?, phone_number = ?, balance = ?, currency = ?, status = ?, version = version + 1 WHERE account_id = ?",
                 account.account_number(),
+                account.account_holder_name(),
+                account.email(),
+                account.phone_number(),
                 account.balance(),
-                account.id()
+                account.currency(),
+                account.status(),
+                account.account_id()
         );
-        insertAudit("ACCOUNT", String.valueOf(account.id()), "UPDATED", "Account details updated");
-        return findById(account.id()).orElseThrow();
+        insertAudit("ACCOUNT", String.valueOf(account.account_id()), "UPDATED", "Account details updated");
+        return findById(account.account_id()).orElseThrow();
     }
 
     @Override
