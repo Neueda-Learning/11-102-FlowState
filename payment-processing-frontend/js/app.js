@@ -288,6 +288,7 @@
     const toSelect = document.getElementById("toAccount");
     const amountInput = document.getElementById("amount");
     const balanceLabel = document.getElementById("availableBalance");
+    const createPaymentButton = form.querySelector("button[type='submit']");
 
     populateAccountSelects([fromSelect, toSelect]);
 
@@ -303,6 +304,124 @@
 
     const modal = document.getElementById("confirmModal");
     const confirmButton = document.getElementById("confirmPaymentBtn");
+    const closeModalButton = document.getElementById("closeConfirmModal");
+    const paymentApiUrl = "/api/payments";
+    const requestTimeoutMs = 15000;
+    let currentIdempotencyKey = "";
+    let currentPaymentPayload = null;
+    let currentPaymentDescription = "";
+    let isPaymentRequestInFlight = false;
+    let currentRetryCount = 0;
+
+    function toRequestAccountId(value) {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : value;
+    }
+
+    function setPaymentSubmissionDisabled(isDisabled) {
+      if (confirmButton) {
+        confirmButton.disabled = isDisabled;
+      }
+      if (createPaymentButton) {
+        createPaymentButton.disabled = isDisabled;
+      }
+      if (closeModalButton) {
+        closeModalButton.disabled = isDisabled;
+      }
+    }
+
+    function resetCurrentAttempt() {
+      currentIdempotencyKey = "";
+      currentPaymentPayload = null;
+      currentPaymentDescription = "";
+      currentRetryCount = 0;
+      confirmButton.textContent = "Confirm Payment";
+    }
+
+    function startNewAttempt(payload, description) {
+      const idempotencyKey = crypto.randomUUID();
+      currentIdempotencyKey = idempotencyKey;
+      currentPaymentPayload = payload;
+      currentPaymentDescription = description;
+      currentRetryCount = 0;
+      confirmButton.textContent = "Confirm Payment";
+      // IDEMPOTENCY DEBUG — remove after verification
+      console.log("%c[Idempotency] NEW attempt — generated key:", "color: green; font-weight: bold;", idempotencyKey);
+    }
+
+    function isRetryableStatus(statusCode) {
+      return statusCode === 408 || statusCode === 429 || statusCode >= 500;
+    }
+
+    async function postPayment(paymentData) {
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(function () {
+        controller.abort();
+      }, requestTimeoutMs);
+
+      try {
+        const response = await fetch(paymentApiUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(paymentData),
+          signal: controller.signal
+        });
+
+        const text = await response.text();
+        let body = null;
+
+        if (text) {
+          try {
+            body = JSON.parse(text);
+          } catch (parseError) {
+            body = null;
+          }
+        }
+
+        if (!response.ok) {
+          const error = new Error((body && body.message) || ("Payment request failed with status " + response.status + "."));
+          error.retryable = isRetryableStatus(response.status);
+          throw error;
+        }
+
+        return body;
+      } catch (error) {
+        if (error && error.name === "AbortError") {
+          const timeoutError = new Error("Payment request timed out.");
+          timeoutError.retryable = true;
+          throw timeoutError;
+        }
+
+        if (typeof error.retryable !== "boolean") {
+          error.retryable = error instanceof TypeError;
+        }
+
+        throw error;
+      } finally {
+        window.clearTimeout(timeoutId);
+      }
+    }
+
+    function buildResultFromResponse(responseBody, paymentData) {
+      const now = new Date().toISOString();
+      const responseId = responseBody && (responseBody.id || responseBody.paymentId);
+      const responseStatus = responseBody && responseBody.status ? String(responseBody.status).toUpperCase() : "COMPLETED";
+
+      return {
+        id: responseId || ("PAY" + String(Date.now())),
+        fromAccountId: paymentData.sourceAccountId,
+        toAccountId: paymentData.destinationAccountId,
+        amount: paymentData.amount,
+        description: currentPaymentDescription,
+        status: responseStatus,
+        failureReason: "",
+        retryCount: currentRetryCount,
+        createdAt: (responseBody && responseBody.createdAt) || now,
+        lastUpdated: (responseBody && responseBody.lastUpdated) || now
+      };
+    }
 
     function openModal(summary) {
       document.getElementById("confirmFrom").textContent = summary.from;
@@ -316,7 +435,7 @@
       modal.classList.add("hidden");
     }
 
-    document.getElementById("closeConfirmModal").addEventListener("click", closeModal);
+    closeModalButton.addEventListener("click", closeModal);
 
     form.addEventListener("submit", function (event) {
       event.preventDefault();
@@ -356,6 +475,15 @@
         return;
       }
 
+      const paymentPayload = {
+        sourceAccountId: toRequestAccountId(from),
+        destinationAccountId: toRequestAccountId(to),
+        amount: Number(amount),
+        currency: "INR"
+      };
+
+      startNewAttempt(paymentPayload, description);
+
       openModal({
         from: from,
         to: to,
@@ -364,25 +492,58 @@
       });
     });
 
-    confirmButton.addEventListener("click", function () {
-      const paymentId = "PAY" + String(Math.floor(Math.random() * 9000) + 1000);
-      const fail = Math.random() < 0.4;
-      const result = {
-        id: paymentId,
-        fromAccountId: fromSelect.value,
-        toAccountId: toSelect.value,
-        amount: Number(amountInput.value),
-        description: document.getElementById("description").value,
-        status: fail ? "FAILED" : "COMPLETED",
-        failureReason: fail ? "Simulated processing failure" : "",
-        retryCount: fail ? 1 : 0,
-        createdAt: new Date().toISOString(),
-        lastUpdated: new Date().toISOString()
+    confirmButton.addEventListener("click", async function () {
+      if (!currentPaymentPayload || !currentIdempotencyKey || isPaymentRequestInFlight) {
+        return;
+      }
+
+      hideBanner();
+      isPaymentRequestInFlight = true;
+      setPaymentSubmissionDisabled(true);
+
+      const paymentData = {
+        sourceAccountId: currentPaymentPayload.sourceAccountId,
+        destinationAccountId: currentPaymentPayload.destinationAccountId,
+        amount: currentPaymentPayload.amount,
+        currency: currentPaymentPayload.currency,
+        idempotencyKey: currentIdempotencyKey
       };
 
-      window.localStorage.setItem(storageKeys.paymentResult, JSON.stringify(result));
-      closeModal();
-      window.location.href = "payment-result.html?id=" + result.id;
+      // IDEMPOTENCY DEBUG — remove after verification
+      const attemptLabel = currentRetryCount === 0 ? "FIRST attempt" : ("RETRY #" + currentRetryCount);
+      console.log(
+        "%c[Idempotency] " + attemptLabel + " — sending key:",
+        "color: " + (currentRetryCount === 0 ? "blue" : "orange") + "; font-weight: bold;",
+        currentIdempotencyKey
+      );
+      console.log("%c[Idempotency] Full request body:", "color: gray;", JSON.stringify(paymentData, null, 2));
+
+      try {
+        const responseBody = await postPayment(paymentData);
+        const result = buildResultFromResponse(responseBody, paymentData);
+        window.localStorage.setItem(storageKeys.paymentResult, JSON.stringify(result));
+        isPaymentRequestInFlight = false;
+        setPaymentSubmissionDisabled(false);
+        resetCurrentAttempt();
+        closeModal();
+        window.location.href = "payment-result.html?id=" + result.id;
+      } catch (error) {
+        isPaymentRequestInFlight = false;
+        setPaymentSubmissionDisabled(false);
+
+        if (error.retryable) {
+          currentRetryCount += 1;
+          confirmButton.textContent = "Retry Payment";
+          showBanner("warning", "Temporary network/server issue. Click Retry Payment to submit the same request again.");
+          // IDEMPOTENCY DEBUG — remove after verification
+          console.log("%c[Idempotency] Retryable failure — key PRESERVED (not regenerated):", "color: orange; font-weight: bold;", currentIdempotencyKey);
+          return;
+        }
+
+        resetCurrentAttempt();
+        closeModal();
+        showBanner("error", (error.message || "Payment failed.") + " Start a new payment attempt.");
+      }
     });
   }
 
@@ -726,4 +887,8 @@
 
   document.addEventListener("DOMContentLoaded", initPage);
 })();
+
+
+
+
 
