@@ -22,7 +22,8 @@ src/main/java/com/example/PaymentProcessingSystem/
 ## Data Model Rules
 - Money uses the **minor-unit pattern** (`Long` cents).
 - Money uses the **minor-unit pattern** (`BIGINT` in SQL).
-- `schema.sql` + `data.sql` are authoritative and run at startup.
+- `schema.sql` creates the database tables at startup.
+- No demo rows are seeded automatically at startup.
 - Unified audit is stored in `audit_log`.
 
 ## Local Run (Docker)

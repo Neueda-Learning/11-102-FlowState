@@ -6,8 +6,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
 
-import java.sql.Timestamp;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -30,8 +28,8 @@ public class JdbcAccountRepository implements AccountRepository {
                     rs.getString("currency"),
                     rs.getString("status"),
                     rs.getInt("version"),
-                    toLocalDateTime(rs.getTimestamp("created_at")),
-                    toLocalDateTime(rs.getTimestamp("updated_at"))
+                    rs.getTimestamp("created_at").toLocalDateTime(),
+                    rs.getTimestamp("updated_at").toLocalDateTime()
             );
 
     private final RowMapper<AuditRecord> auditRowMapper = (rs, rowNum) ->
@@ -41,7 +39,7 @@ public class JdbcAccountRepository implements AccountRepository {
                     rs.getString("aggregate_id"),
                     rs.getString("event_type"),
                     rs.getString("message"),
-                    toLocalDateTime(rs.getTimestamp("created_at"))
+                    rs.getTimestamp("created_at").toLocalDateTime()
             );
 
     @Override
@@ -82,7 +80,7 @@ public class JdbcAccountRepository implements AccountRepository {
                 account.status() == null ? "ACTIVE" : account.status()
         );
         Account saved = findByAccountNumber(account.account_number()).orElseThrow();
-        insertAudit("ACCOUNT", String.valueOf(saved.account_id()), "CREATED", "Account created");
+        insertAccountAudit(String.valueOf(saved.account_id()), "CREATED", "Account created");
         return saved;
     }
 
@@ -99,7 +97,7 @@ public class JdbcAccountRepository implements AccountRepository {
                 account.status(),
                 account.account_id()
         );
-        insertAudit("ACCOUNT", String.valueOf(account.account_id()), "UPDATED", "Account details updated");
+        insertAccountAudit(String.valueOf(account.account_id()), "UPDATED", "Account details updated");
         return findById(account.account_id()).orElseThrow();
     }
 
@@ -113,17 +111,13 @@ public class JdbcAccountRepository implements AccountRepository {
         );
     }
 
-    private void insertAudit(String aggregateType, String aggregateId, String eventType, String message) {
+    private void insertAccountAudit(String aggregateId, String eventType, String message) {
         jdbc.update(
                 "INSERT INTO audit_log (aggregate_type, aggregate_id, event_type, message) VALUES (?, ?, ?, ?)",
-                aggregateType,
+                "ACCOUNT",
                 aggregateId,
                 eventType,
                 message
         );
-    }
-
-    private LocalDateTime toLocalDateTime(Timestamp timestamp) {
-        return timestamp == null ? null : timestamp.toLocalDateTime();
     }
 }
