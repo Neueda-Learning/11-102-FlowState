@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create Payment | Payment Processing System</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/responsive.css">
+</head>
+<body data-page="create-payment">
+  <div class="app-layout">
+    <aside class="sidebar" aria-label="Sidebar navigation">
+      <div class="sidebar-brand">Payment Processing System</div>
+      <nav class="sidebar-nav">
+        <a class="sidebar-link" data-nav="dashboard" href="dashboard.html">Dashboard</a>
+        <a class="sidebar-link" data-nav="accounts" href="accounts.html">Accounts</a>
+        <a class="sidebar-link" data-nav="create-payment" href="create-payment.html">Create Payment</a>
+        <a class="sidebar-link" data-nav="payments" href="payments.html">Payments</a>
+        <a class="sidebar-link" data-nav="failed-payments" href="failed-payments.html">Failed Payments</a>
+        <a class="sidebar-link" data-nav="payments" href="payment-history.html">Payment History</a>
+        <a class="sidebar-link" data-nav="audit-logs" href="audit-logs.html">Audit Logs</a>
+        <a class="sidebar-link" id="logoutLink" href="login.html">Logout</a>
+      </nav>
+    </aside>
+
+    <div class="app-main">
+      <header class="topbar">
+        <h1>Create Payment</h1>
+        <div class="user-chip">USER01</div>
+      </header>
+
+      <main class="page-content">
+        <div id="messageHost" class="alert hidden" role="alert" aria-live="polite"></div>
+
+        <section class="card">
+          <form id="createPaymentForm" novalidate>
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="fromAccount">From Account</label>
+                <select id="fromAccount" name="fromAccount">
+                  <option value="">Select From Account</option>
+                </select>
+                <span class="field-error" data-error-for="fromAccount"></span>
+              </div>
+
+              <div class="form-group">
+                <label for="toAccount">To Account</label>
+                <select id="toAccount" name="toAccount">
+                  <option value="">Select To Account</option>
+                </select>
+                <span class="field-error" data-error-for="toAccount"></span>
+              </div>
+
+              <div class="form-group">
+                <label for="amount">Amount</label>
+                <input id="amount" name="amount" type="number" min="0" step="0.01" placeholder="Enter amount">
+                <span class="field-error" data-error-for="amount"></span>
+              </div>
+
+              <div class="form-group">
+                <label>Available Balance</label>
+                <input id="availableBalance" type="text" value="-" readonly>
+              </div>
+
+              <div class="form-group full-width">
+                <label for="description">Description / Payment Reference</label>
+                <textarea id="description" name="description" rows="3" placeholder="Enter short description"></textarea>
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <button class="btn btn-primary" type="submit">Create Payment</button>
+              <button class="btn btn-secondary" type="reset">Reset</button>
+            </div>
+          </form>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <div id="confirmModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+    <div class="modal">
+      <h2 id="confirmTitle">Confirm Payment</h2>
+      <div class="details-grid">
+        <div class="detail-item"><p class="detail-label">From</p><p id="confirmFrom" class="detail-value">-</p></div>
+        <div class="detail-item"><p class="detail-label">To</p><p id="confirmTo" class="detail-value">-</p></div>
+        <div class="detail-item"><p class="detail-label">Amount</p><p id="confirmAmount" class="detail-value">-</p></div>
+        <div class="detail-item"><p class="detail-label">Description</p><p id="confirmDescription" class="detail-value">-</p></div>
+      </div>
+      <div class="modal-actions">
+        <button id="closeConfirmModal" class="btn btn-secondary" type="button">Cancel</button>
+        <button id="confirmPaymentBtn" class="btn btn-primary" type="button">Confirm Payment</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/mock-data.js"></script>
+  <script src="js/validation.js"></script>
+  <script src="js/payments.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
+
