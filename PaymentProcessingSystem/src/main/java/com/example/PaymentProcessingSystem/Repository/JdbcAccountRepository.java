@@ -1,6 +1,7 @@
 package com.example.PaymentProcessingSystem.Repository;
 
 import com.example.PaymentProcessingSystem.model.Account;
+import com.example.PaymentProcessingSystem.model.AuditRecord;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
@@ -30,6 +31,16 @@ public class JdbcAccountRepository implements  AccountRepository {
                 rs.getTimestamp("created_at").toLocalDateTime(),
                 rs.getTimestamp("updated_at").toLocalDateTime()
         );
+
+    private final RowMapper<AuditRecord> auditRowMapper = (rs, rowNum) ->
+            new AuditRecord(
+                    rs.getLong("id"),
+                    rs.getString("aggregate_type"),
+                    rs.getString("aggregate_id"),
+                    rs.getString("event_type"),
+                    rs.getString("message"),
+                    rs.getTimestamp("created_at").toLocalDateTime()
+            );
 
     @Override
     public List<Account> findAll() {
@@ -89,4 +100,25 @@ public class JdbcAccountRepository implements  AccountRepository {
         List<Account> accounts = jdbc.query(sql, accountRowMapper, account_id);
         return accounts.stream().findFirst();
     }
+
+    @Override
+    public List<AuditRecord> findAuditByAccountId(Long account_id) {
+        return jdbc.query(
+                "SELECT id, aggregate_type, aggregate_id, event_type, message, created_at FROM audit_log WHERE aggregate_type = ? AND aggregate_id = ? ORDER BY created_at DESC",
+                auditRowMapper,
+                "ACCOUNT",
+                String.valueOf(account_id)
+        );
+    }
+
+    private void insertAccountAudit(String aggregateId, String eventType, String message) {
+        jdbc.update(
+                "INSERT INTO audit_log (aggregate_type, aggregate_id, event_type, message) VALUES (?, ?, ?, ?)",
+                "ACCOUNT",
+                aggregateId,
+                eventType,
+                message
+        );
+    }
+
 }

@@ -1,6 +1,7 @@
 package com.example.PaymentProcessingSystem.Service;
 
 import com.example.PaymentProcessingSystem.model.Account;
+import com.example.PaymentProcessingSystem.model.AuditRecord;
 
 import java.util.List;
 import java.util.Optional;
@@ -15,4 +16,6 @@ public interface AccountService {
     Account createAccount(Account account);
 
     Account updateAccount(Long accountId, Account account);
+
+    List<AuditRecord> getAccountHistory(Long accountId);
 }

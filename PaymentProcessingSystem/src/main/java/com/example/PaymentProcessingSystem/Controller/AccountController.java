@@ -3,6 +3,7 @@ package com.example.PaymentProcessingSystem.Controller;
 import com.example.PaymentProcessingSystem.Service.AccountService;
 import com.example.PaymentProcessingSystem.model.Account;
 import org.springframework.web.bind.annotation.*;
+import com.example.PaymentProcessingSystem.model.AuditRecord;
 
 import java.util.List;
 import java.util.Optional;
@@ -41,6 +42,10 @@ private final AccountService accountService;
     public Account updateAccount(@PathVariable Long accountId, @RequestBody Account account) {
         return accountService.updateAccount(accountId, account);}
 
+    @GetMapping("/{accountId}/history")
+    public List<AuditRecord> getAccountHistory(@PathVariable Long accountId) {
+        return accountService.getAccountHistory(accountId);
+    }
 
 
 }

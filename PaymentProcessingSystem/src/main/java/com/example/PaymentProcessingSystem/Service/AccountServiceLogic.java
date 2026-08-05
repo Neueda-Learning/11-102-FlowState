@@ -2,6 +2,7 @@ package com.example.PaymentProcessingSystem.Service;
 
 import com.example.PaymentProcessingSystem.Repository.AccountRepository;
 import com.example.PaymentProcessingSystem.model.Account;
+import com.example.PaymentProcessingSystem.model.AuditRecord;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -31,6 +32,8 @@ public class AccountServiceLogic implements AccountService {
     }
     @Override
     public Account updateAccount(Long accountId, Account account) {
+
+        Account existing = accountRepository.findById(accountId).orElseThrow();
         Account updated = new Account(
                 accountId,
                 account.account_number(),
@@ -47,5 +50,11 @@ public class AccountServiceLogic implements AccountService {
         accountRepository.update(updated);
         return accountRepository.findById(accountId).orElseThrow();
     }
+
+    @Override
+    public List<AuditRecord> getAccountHistory(Long accountId) {
+        return accountRepository.findAuditByAccountId(accountId);
+    }
+
 
 }

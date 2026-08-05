@@ -29,3 +29,12 @@ CREATE TABLE IF NOT EXISTS payment(
     FOREIGN KEY (destination_account_id) REFERENCES account(account_id)
 
     );
+
+CREATE TABLE IF NOT EXISTS payment_history (
+    history_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    payment_id BIGINT NOT NULL,
+    status ENUM('CREATED','VALIDATED','SENT','COMPLETED','FAILED') NOT NULL,
+    message VARCHAR(255),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (payment_id) REFERENCES payment(payment_id)
+);

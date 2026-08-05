@@ -7,10 +7,12 @@ import com.example.PaymentProcessingSystem.Dto.PaymentRequest;
 import com.example.PaymentProcessingSystem.Dto.PaymentResponse;
 import com.example.PaymentProcessingSystem.Exception.*;
 import com.example.PaymentProcessingSystem.Repository.AccountRepository;
+import com.example.PaymentProcessingSystem.Repository.PaymentHistoryRepository;
 import com.example.PaymentProcessingSystem.Repository.PaymentRepository;
 import com.example.PaymentProcessingSystem.model.Account;
 import com.example.PaymentProcessingSystem.model.AccountPair;
 import com.example.PaymentProcessingSystem.model.Payment;
+import com.example.PaymentProcessingSystem.model.PaymentHistory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,10 +25,14 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaymentRepository paymentRepository;
     public  final AccountRepository accountRepository;
     private final GatewayClient gatewayClient;
-    public PaymentServiceImpl(PaymentRepository paymentRepository, AccountRepository accountRepository, GatewayClient gatewayClient) {
+    private final PaymentHistoryRepository paymentHistoryRepository;
+
+    public PaymentServiceImpl(PaymentRepository paymentRepository, AccountRepository accountRepository,
+                              GatewayClient gatewayClient,PaymentHistoryRepository paymentHistoryRepository) {
         this.paymentRepository = paymentRepository;
         this.accountRepository = accountRepository;
         this.gatewayClient = gatewayClient;
+        this.paymentHistoryRepository = paymentHistoryRepository;
     }
     @Override
     @Transactional
@@ -42,6 +48,7 @@ public class PaymentServiceImpl implements PaymentService {
 
         //step 3:save payment(status=CREATED)
         Payment savedPayment = paymentRepository.save(payment);
+        recordHistory(savedPayment.payment_id(), "CREATED", "Payment created");
 
         //step 4:Generate payment reference
         String paymentReference = generatePaymentReference(savedPayment.payment_id());
@@ -49,9 +56,11 @@ public class PaymentServiceImpl implements PaymentService {
 
         //step 5:update status to validated
         paymentRepository.updatePaymentStatus(savedPayment.payment_id(), "VALIDATED");
+        recordHistory(savedPayment.payment_id(), "VALIDATED", "Payment validated");
 
         //step 6:update status to sent
         paymentRepository.updatePaymentStatus(savedPayment.payment_id(), "SENT");
+        recordHistory(savedPayment.payment_id(), "SENT", "Payment sent to gateway");
 
         //step 7:send payment to gateway
         GatewayResponse gatewayResponse = sendToGateway(savedPayment, paymentReference);
@@ -126,9 +135,11 @@ public class PaymentServiceImpl implements PaymentService {
         return failPayment(payment, paymentReference,gatewayResponse.status(), gatewayResponse.message());
     }
     private PaymentResponse completePayment(Payment payment, String paymentReference, String message) {
-        //update status to completed
-        paymentRepository.updatePaymentStatus(payment.payment_id(),"COMPLETED");
-        //update source account balance
+        // update status to completed and persist history
+        paymentRepository.updatePaymentStatus(payment.payment_id(), "COMPLETED");
+        recordHistory(payment.payment_id(), "COMPLETED", message == null ? "Payment completed" : message);
+
+        // update account balances
         updateBalances(payment.source_account_id(), payment.destination_account_id(), payment.amount());
         Payment updatedPayment = paymentRepository.findById(payment.payment_id())
                 .orElseThrow(() -> new RuntimeException("Payment not found after completion."));
@@ -138,6 +149,8 @@ public class PaymentServiceImpl implements PaymentService {
 
         paymentRepository.updatePaymentStatusAndFailureReason(payment.payment_id(),"FAILED", failureReason);
         paymentRepository.incrementRetryCount(payment.payment_id());
+        recordHistory(payment.payment_id(), "FAILED", message == null ? "Payment failed" : message);
+
         Payment updatedPayment = paymentRepository.findById(payment.payment_id())
                 .orElseThrow(() -> new RuntimeException("Payment not found."));
         return buildPaymentResponse(updatedPayment, paymentReference, message);
@@ -235,6 +248,19 @@ public class PaymentServiceImpl implements PaymentService {
             throw new InvalidPaymentException("Only payments with status 'CREATED' or 'VALIDATED' can be cancelled.");
         }
         paymentRepository.cancelPayment(paymentId);
+        recordHistory(paymentId, "FAILED", "Payment cancelled");
+    }
+
+    private void recordHistory(Long paymentId, String status, String message) {
+        paymentHistoryRepository.save(
+                new PaymentHistory(
+                        null,
+                        paymentId,
+                        status,
+                        message,
+                        null
+                )
+        );
     }
 
 }
