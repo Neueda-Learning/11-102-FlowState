@@ -81,4 +81,12 @@ public class JdbcAccountRepository implements  AccountRepository {
                 status, account_id
         );
     }
+
+    @Override
+    public Optional<Account>findByIdForUpdate(Long account_id) {
+
+        String sql = "SELECT * FROM account WHERE account_id = ? FOR UPDATE";
+        List<Account> accounts = jdbc.query(sql, accountRowMapper, account_id);
+        return accounts.stream().findFirst();
+    }
 }

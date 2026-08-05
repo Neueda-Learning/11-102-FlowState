@@ -11,5 +11,6 @@ public interface AccountRepository {
     Optional<Account> findByAccountNumber(String account_number);
     Account save(Account account);
     Account update(Account account);
+    Optional<Account> findByIdForUpdate(Long account_id);
     void updateStatus(Long account_id, String status);
 }

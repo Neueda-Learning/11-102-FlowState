@@ -145,12 +145,17 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     private void updateBalances(Long sourceAccountId, Long destinationAccountId, BigDecimal amount) {
-
-        Account sourceAccount = accountRepository.findById(sourceAccountId)
+        Long first=Math.min(sourceAccountId,destinationAccountId);
+        Long second=Math.max(sourceAccountId,destinationAccountId);
+        Account firstAccount = accountRepository.findByIdForUpdate(first)
                 .orElseThrow(() -> new AccountNotFoundException("Source account not found."));
-        Account destinationAccount = accountRepository.findById(destinationAccountId)
+        Account secondAccount = accountRepository.findByIdForUpdate(second)
                 .orElseThrow(() -> new AccountNotFoundException("Destination account not found."));
-
+        Account sourceAccount =first.equals(sourceAccountId)?firstAccount:secondAccount;
+        Account destinationAccount =first.equals(destinationAccountId)?firstAccount:secondAccount;
+        if (sourceAccount.balance().compareTo(amount) < 0) {
+            throw new InsufficientBalanceException("Insufficient balance in source account.");
+        }
         Account updatedSource=new Account(
                 sourceAccount.account_id(),
                 sourceAccount.account_number(),
@@ -162,8 +167,7 @@ public class PaymentServiceImpl implements PaymentService {
                 sourceAccount.status(),
                 sourceAccount.version(),
                 sourceAccount.created_at(),
-                sourceAccount.updated_at()
-        );
+                sourceAccount.updated_at());
         Account updatedDestination=new Account(
                 destinationAccount.account_id(),
                 destinationAccount.account_number(),
@@ -175,8 +179,7 @@ public class PaymentServiceImpl implements PaymentService {
                 destinationAccount.status(),
                 destinationAccount.version(),
                 destinationAccount.created_at(),
-                destinationAccount.updated_at()
-        );
+                destinationAccount.updated_at());
         accountRepository.update(updatedSource);
         accountRepository.update(updatedDestination);
 
